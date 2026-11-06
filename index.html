@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="記帳本">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f6f5f1">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-512.png">
+<title>記帳本</title>
+<style>
+:root{
+  --bg:#f6f5f1; --card:#ffffff; --ink:#1f2328; --muted:#6b7078; --line:#e6e3dd;
+  --pos:#1a7f4b; --pos-bg:#e7f4ec; --neg:#c23a2b; --neg-bg:#fbeae7; --accent:#2b5bd7; --accent-bg:#e9effc;
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#111315; --card:#1c1f23; --ink:#eceef0; --muted:#9aa0a8; --line:#2e3238;
+    --pos:#4cc584; --pos-bg:#183024; --neg:#f07a6a; --neg-bg:#3a2320; --accent:#7ea2ff; --accent-bg:#1f2a44; }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  font-size:16px;line-height:1.45}
+button,input,textarea{font:inherit;color:inherit}
+/* 16px inputs keep iPhone Safari from zooming in on focus */
+input,textarea{font-size:16px}
+.app{max-width:560px;margin:0 auto;
+  padding:calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+  display:flex;flex-direction:column;gap:12px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:36px}
+header.top h1{margin:0;font-size:22px}
+#status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);text-align:right}
+.banner{background:var(--accent-bg);border-radius:12px;padding:10px 12px;font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.amt{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.pos{color:var(--pos)} .neg{color:var(--neg)} .zero{color:var(--muted)}
+
+/* summary */
+.sum .lbl{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sum .big{font-size:34px;font-weight:700;letter-spacing:-.01em;margin:2px 0 8px}
+.sum .big .amt{font-weight:700}
+.sum .sub{display:flex;gap:16px;font-size:14px;color:var(--muted)}
+.sum .sub b{font-weight:600;font-variant-numeric:tabular-nums}
+.sum.posb{background:linear-gradient(0deg,var(--card),var(--card)) padding-box}
+.pacts{display:flex;gap:6px}
+.renamebox{display:flex;gap:6px;margin:6px 0 8px}
+
+/* project chips */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;margin:0 -14px;padding-left:14px;padding-right:14px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;line-height:1.2;min-height:44px;justify-content:center}
+.chip .n{font-size:14px;font-weight:600;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .b{font-size:12px}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--card)}
+.chip.on .b .amt{color:inherit;opacity:.85}
+
+/* form */
+.entry h2,.list h2{margin:0 0 10px;font-size:15px;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+form.entry{display:flex;flex-direction:column;gap:10px}
+.field{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);min-height:48px;-webkit-appearance:none;appearance:none}
+.field:focus{outline:2px solid var(--accent);outline-offset:-1px;background:var(--card)}
+.two{display:grid;grid-template-columns:1.3fr 1fr;gap:10px}
+.amtin{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+input[type=date].field{min-width:0}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{border:none;background:var(--card);padding:0;min-height:46px;cursor:pointer;font-weight:600;color:var(--muted)}
+.seg button.on.in{background:var(--pos);color:#fff}
+.seg button.on.out{background:var(--neg);color:#fff}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;cursor:pointer;white-space:nowrap;min-height:36px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.block{width:100%;min-height:50px;font-size:17px;border-radius:12px}
+.btn.danger{color:var(--neg)}
+.btn.danger.armed{background:var(--neg);color:#fff;border-color:var(--neg)}
+.btn.sm{padding:5px 10px;font-size:13px;min-height:32px}
+.rowbtns{display:flex;gap:8px}
+.rowbtns .btn{flex:1}
+.err{color:var(--neg);font-size:14px}
+.notice{color:var(--pos);font-size:14px}
+.err:empty,.notice:empty{display:none}
+
+/* records */
+.listacts{display:flex;gap:6px}
+.day{font-size:13px;color:var(--muted);font-weight:600;padding:12px 2px 4px}
+.day:first-of-type{padding-top:0}
+ul.recs{list-style:none;margin:0;padding:0}
+.rec{border-bottom:1px solid var(--line);padding:10px 2px;cursor:pointer}
+.rec:last-child{border-bottom:none}
+.rec .l1{display:flex;align-items:baseline;gap:8px}
+.rec .nm{font-weight:600;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%}
+.rec .note{flex:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.rec .amt{margin-left:auto;font-size:17px}
+.rec .l2{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:2px}
+.rec .tag{font-size:12px;padding:0 7px;border-radius:99px}
+.tag.in{background:var(--pos-bg);color:var(--pos)} .tag.out{background:var(--neg-bg);color:var(--neg)}
+.rec .ra{display:flex;gap:8px;margin-top:10px}
+.rec .ra .btn{flex:1;min-height:40px}
+.rec.editing{background:var(--accent-bg);border-radius:10px;padding-left:8px;padding-right:8px}
+@keyframes fl{from{background:var(--pos-bg)}to{background:transparent}}
+.rec.flash{animation:fl 1.6s ease-out}
+.banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.banner .bt{flex:1 1 0;min-width:0}
+.banner{flex-wrap:nowrap}
+.banner .x{margin-left:auto;border:none;background:none;font-size:20px;line-height:1;color:var(--muted);cursor:pointer;padding:4px 6px}
+.warnb{background:var(--neg-bg);color:var(--neg)}
+.filebtn{display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;font-weight:600}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.empty{color:var(--muted);text-align:center;padding:22px 0;font-size:14px}
+.copied{font-size:13px;color:var(--pos)}
+
+/* batch paste sheet */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+.sheet[hidden]{display:none}
+.panel{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;
+  padding:16px calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  display:flex;flex-direction:column;gap:10px}
+.panel h3{margin:0;font-size:18px}
+.panel .help{font-size:13px;color:var(--muted)}
+.panel .help code{background:var(--bg);border-radius:6px;padding:1px 6px;font-family:inherit;color:var(--ink)}
+textarea.field{min-height:140px;resize:vertical;line-height:1.5}
+.prev{list-style:none;margin:0;padding:0;font-size:14px}
+.prev li{display:flex;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line)}
+.prev li:last-child{border-bottom:none}
+.prev .nm{font-weight:600}
+.prev .note{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prev .amt{margin-left:auto}
+.prev .warn{font-size:12px;color:var(--muted)}
+.prev li.bad{color:var(--neg)}
+.prev li.bad .src{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<script>
+(function(){
+"use strict";
+var DATA_KEY = 'ledger-data-v1', BACKUP_KEY = 'ledger-last-backup';
+var state, storageOk = null;
+function loadState(){
+  try { state = JSON.parse(localStorage.getItem(DATA_KEY) || 'null'); } catch(e){ state = null; storageOk = false; }
+  if(!state || !Array.isArray(state.projects)) state = {projects:[]};
+}
+loadState();
+
+var ui = { sel: null, type: 'out', editId: null, open: null, armed: null, renaming: false, err: '', copied: false,
+           lastDate: null, flash: null, lastName: null, notice: '', batch: false, backup: false, bkMsg: '' };
+
+var SHELL =
+ '<div class="app">' +
+ '<header class="top"><h1>記帳本</h1><button class="btn sm" data-act="backup">備份</button></header>' +
+ '<div id="banner"></div>' +
+ '<section class="card sum" id="sum"></section>' +
+ '<nav class="chips" id="chips"></nav>' +
+ '<section class="card entry" id="entry"></section>' +
+ '<section class="card list" id="list"></section>' +
+ '</div>' +
+ '<div class="sheet" id="sheet" hidden><div class="panel" id="panel"></div></div>' +
+ '<div class="sheet" id="sheet2" hidden><div class="panel" id="panel2"></div></div>';
+var shell = document.createElement('div');
+shell.innerHTML = SHELL;
+var ME = document.currentScript;
+while(shell.firstChild) document.body.insertBefore(shell.firstChild, ME);
+
+/* ---------- helpers ---------- */
+// ids sort by creation time: timestamp + counter (records added in one batch keep their order)
+var seq = 0;
+function uid(p){ var c = (seq++ % 1296).toString(36); if(c.length<2) c='0'+c;
+  return p + Date.now().toString(36) + c + Math.random().toString(36).slice(2,4); }
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function fmt(n){ return Math.abs(n).toLocaleString('zh-TW',{maximumFractionDigits:2}); }
+function signed(n){
+  if(n > 0) return '<span class="amt pos">+' + fmt(n) + '</span>';
+  if(n < 0) return '<span class="amt neg">−' + fmt(n) + '</span>';
+  return '<span class="amt zero">0</span>';
+}
+function today(){ var d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+function proj(id){ for(var i=0;i<state.projects.length;i++) if(state.projects[i].id===id) return state.projects[i]; return null; }
+function round(n){ return Math.round(n*100)/100; }
+function totals(p){
+  var inc=0, out=0;
+  p.entries.forEach(function(e){ if(e.type==='in') inc+=e.amount; else out+=e.amount; });
+  return { inc: round(inc), out: round(out), bal: round(inc-out) };
+}
+function chrono(p){
+  return p.entries.map(function(e,i){ return {e:e,i:i}; })
+    .sort(function(a,b){ return a.e.date < b.e.date ? -1 : a.e.date > b.e.date ? 1 : a.i - b.i; })
+    .map(function(x){ return x.e; });
+}
+function norm(s){ return String(s).trim().replace(/\s+/g,' ').toLowerCase(); }
+function projByName(name){
+  var n = norm(name);
+  for(var i=0;i<state.projects.length;i++) if(norm(state.projects[i].name)===n) return state.projects[i];
+  return null;
+}
+function findEntry(id){
+  for(var i=0;i<state.projects.length;i++){
+    var p = state.projects[i];
+    for(var j=0;j<p.entries.length;j++) if(p.entries[j].id===id) return {p:p, e:p.entries[j]};
+  }
+  return null;
+}
+// full-width digits/signs (common with Chinese keyboards) -> half-width
+function toHalf(s){
+  return String(s).replace(/[！-～]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); })
+    .replace(/　/g,' ').replace(/[−–—]/g,'-');
+}
+function parseAmount(s){
+  var v = parseFloat(toHalf(s).replace(/[,\s元$]/g,''));
+  return isFinite(v) ? v : NaN;
+}
+function allRows(onlyP){
+  var rows = [];
+  state.projects.forEach(function(p){
+    if(onlyP && p !== onlyP) return;
+    var run = 0;
+    chrono(p).forEach(function(e){
+      run = round(run + (e.type==='in'?e.amount:-e.amount));
+      rows.push({p:p, e:e, run:run});
+    });
+  });
+  rows.sort(function(a,b){ return a.e.date < b.e.date ? 1 : a.e.date > b.e.date ? -1 : (a.e.id < b.e.id ? 1 : -1); });
+  return rows;
+}
+
+/* ---------- persistence: everything lives on this phone ---------- */
+function save(){
+  try {
+    localStorage.setItem(DATA_KEY, JSON.stringify(state));
+    storageOk = true;
+  } catch(e){ storageOk = false; }
+  renderBanner();
+}
+function setStatus(t){ var el=document.getElementById('status'); if(el) el.textContent=t; }
+function isStandalone(){
+  return window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+function getMeta(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function setMeta(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+function daysSince(iso){ return iso ? Math.floor((Date.now() - Date.parse(iso)) / 864e5) : null; }
+function entryCount(){ return state.projects.reduce(function(s,p){ return s + p.entries.length; }, 0); }
+
+/* ---------- backup / restore ---------- */
+function backupJSON(){ return JSON.stringify({app:'ledger', version:1, exportedAt:new Date().toISOString(), data:state}, null, 1); }
+function backupName(){ return '記帳本備份-' + today() + '.json'; }
+function doBackup(){
+  var text = backupJSON(), name = backupName();
+  var done = function(){ setMeta(BACKUP_KEY, new Date().toISOString()); ui.bkMsg = '已備份 ' + entryCount() + ' 筆'; renderBackup(); renderBanner(); };
+  var file = null;
+  try { file = new File([text], name, {type:'application/json'}); } catch(e){}
+  if(file && navigator.canShare && navigator.canShare({files:[file]})){
+    navigator.share({files:[file], title:name}).then(done).catch(function(err){
+      if(err && err.name === 'AbortError') return; downloadFallback(text, name, done);
+    });
+  } else downloadFallback(text, name, done);
+}
+function downloadFallback(text, name, done){
+  try {
+    var url = URL.createObjectURL(new Blob([text], {type:'application/json'}));
+    var a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1500); done();
+  } catch(e){ ui.bkMsg = '無法匯出備份'; renderBackup(); }
+}
+// merge: projects matched by name, records matched by id (so restoring twice adds nothing)
+function mergeIn(data){
+  var addedE = 0, addedP = 0;
+  (data.projects || []).forEach(function(sp){
+    if(!sp || !sp.name || !Array.isArray(sp.entries)) return;
+    var tp = projByName(sp.name);
+    if(!tp){ tp = {id: sp.id && !proj(sp.id) ? sp.id : uid('p'), name: String(sp.name), entries: []}; state.projects.push(tp); addedP++; }
+    sp.entries.forEach(function(e){
+      if(!e || !(e.amount > 0) || (e.type !== 'in' && e.type !== 'out')) return;
+      if(e.id && findEntry(e.id)) return;
+      tp.entries.push({id: e.id || uid('e'), date: String(e.date||today()).slice(0,10), type: e.type, amount: round(+e.amount), note: String(e.note||'')});
+      addedE++;
+    });
+  });
+  return {e: addedE, p: addedP};
+}
+function doRestore(file){
+  var r = new FileReader();
+  r.onload = function(){
+    try {
+      var j = JSON.parse(r.result), data = j && j.data ? j.data : j;
+      if(!data || !Array.isArray(data.projects)) throw 0;
+      var res = mergeIn(data);
+      save(); ui.sel = state.projects.length ? 'all' : null; setHash();
+      ui.bkMsg = '已還原：新增 ' + res.e + ' 筆' + (res.p ? '、' + res.p + ' 個項目' : '') + (res.e ? '' : '（資料都已經在了）');
+      render();
+    } catch(e){ ui.bkMsg = '這個檔案不是記帳本的備份'; renderBackup(); }
+  };
+  r.readAsText(file);
+}
+function renderBackup(){
+  var sh = document.getElementById('sheet2');
+  if(!ui.backup){ sh.hidden = true; return; }
+  sh.hidden = false;
+  var last = getMeta(BACKUP_KEY), d = daysSince(last);
+  document.getElementById('panel2').innerHTML =
+    '<h3>備份與還原</h3>' +
+    '<div class="help">資料只存在這支 iPhone 的記帳本裡。建議定期備份，換手機或刪掉 App 前一定要先備份。</div>' +
+    '<div class="help">目前共 ' + state.projects.length + ' 個項目、' + entryCount() + ' 筆紀錄。上次備份：' + (last ? (d===0?'今天':d+' 天前') : '還沒備份過') + '</div>' +
+    '<button class="btn primary block" data-act="doBackup">匯出備份檔</button>' +
+    '<div class="help">按下後選「儲存到檔案」，存到 iCloud 雲碟最安全；也可以傳到 LINE 或 email 給自己。</div>' +
+    '<label class="btn block filebtn">從備份檔還原<input type="file" id="restoreFile" accept=".json,application/json"></label>' +
+    '<div class="help">還原會把備份裡的紀錄合併進來，已經有的不會重複。</div>' +
+    '<div class="notice">' + esc(ui.bkMsg || '') + '</div>' +
+    '<button class="btn block" data-act="backupClose">關閉</button>';
+}
+function renderBanner(){
+  var b = document.getElementById('banner'), html = '';
+  if(storageOk === false) html = '<div class="banner warnb">無法儲存資料。請確認不是在「私密瀏覽」模式下開啟。</div>';
+  else if(!isStandalone() && !dismissed('install'))
+    html = '<div class="banner"><span class="bt">要像 App 一樣使用：按瀏覽器的分享按鈕 →「加入主畫面」，之後都從主畫面的圖示打開，沒網路也能記帳。</span><button class="x" data-dismiss="install" aria-label="關閉">×</button></div>';
+  else {
+    var last = getMeta(BACKUP_KEY), d = daysSince(last), n = entryCount();
+    if(n >= 5 && (last === null || d >= 14) && !dismissed('bk'+today().slice(0,7)))
+      html = '<div class="banner"><span class="bt">'+(last ? '已經 '+d+' 天沒備份了。' : '還沒有備份過。')+'</span><button class="btn sm" data-act="backup">現在備份</button><button class="x" data-dismiss="bk'+today().slice(0,7)+'" aria-label="關閉">×</button></div>';
+  }
+  b.innerHTML = html; b.style.display = html ? '' : 'none';
+}
+function dismissed(k){ return getMeta('ledger-dismiss-'+k) === '1'; }
+
+/* ---------- selection via hash ---------- */
+function validSel(id){ return id === 'all' ? state.projects.length > 0 : !!proj(id); }
+function readHash(){
+  var h = location.hash.replace(/^#/,'');
+  if(h && validSel(h)) ui.sel = h;
+  if(!ui.sel || !validSel(ui.sel)) ui.sel = state.projects.length ? 'all' : null;
+}
+function setHash(){ try { history.replaceState(null,'', ui.sel ? '#'+ui.sel : location.pathname); } catch(e){} }
+function select(id){
+  ui.sel = id; ui.editId=null; ui.open=null; ui.armed=null; ui.renaming=false; ui.err=''; ui.notice='';
+  var p = proj(id); if(p) ui.lastName = p.name;
+  setHash(); render();
+}
+window.addEventListener('hashchange', function(){ readHash(); render(); });
+
+/* ---------- render ---------- */
+function render(){
+  var ro = false;
+  renderBanner();
+
+  var p = (ui.sel && ui.sel !== 'all') ? proj(ui.sel) : null;
+
+  /* summary */
+  var t;
+  if(p) t = totals(p);
+  else { t = {inc:0,out:0}; state.projects.forEach(function(x){ var y=totals(x); t.inc+=y.inc; t.out+=y.out; });
+         t.inc=round(t.inc); t.out=round(t.out); t.bal=round(t.inc-t.out); }
+  var lbl = p ? esc(p.name) + ' 結餘' : '全部結餘';
+  var pacts = (p && !ro && !ui.renaming)
+    ? '<span class="pacts"><button class="btn sm" data-act="rename">改名</button><button class="btn sm danger'+(ui.armed==='proj'?' armed':'')+'" data-act="delProj">'+(ui.armed==='proj'?'確定刪除？':'刪除')+'</button></span>' : '';
+  document.getElementById('sum').innerHTML =
+    '<div class="lbl"><span>'+lbl+'（'+(t.bal>0?'正':t.bal<0?'負':'持平')+'）</span>'+pacts+'</div>' +
+    (ui.renaming && p ? '<form class="renamebox" id="renameForm"><input class="field" id="renameInput" value="'+esc(p.name)+'" maxlength="40"><button class="btn primary" type="submit">儲存</button><button class="btn" type="button" data-act="cancelRename">取消</button></form>' : '') +
+    '<div class="big">'+signed(t.bal)+'</div>' +
+    '<div class="sub"><span>收入 <b class="pos">+'+fmt(t.inc)+'</b></span><span>支出 <b class="neg">−'+fmt(t.out)+'</b></span></div>';
+
+  /* chips: fixed order = creation order */
+  var chips = document.getElementById('chips');
+  if(state.projects.length){
+    chips.style.display = '';
+    var count = state.projects.reduce(function(s,x){return s+x.entries.length;},0);
+    chips.innerHTML = '<button class="chip'+(!p?' on':'')+'" data-sel="all"><span class="n">全部</span><span class="b">'+count+' 筆</span></button>' +
+      state.projects.map(function(x){
+        return '<button class="chip'+(p===x?' on':'')+'" data-sel="'+x.id+'"><span class="n">'+esc(x.name)+'</span><span class="b">'+signed(totals(x).bal)+'</span></button>';
+      }).join('');
+  } else { chips.style.display = 'none'; chips.innerHTML=''; }
+
+  /* entry form */
+  var found = ui.editId ? findEntry(ui.editId) : null;
+  if(ui.editId && !found) ui.editId = null;
+  var editing = found ? found.e : null;
+  var type = editing ? editing.type : ui.type;
+  var nameVal = editing ? found.p.name : (ui.lastName != null ? ui.lastName : (p ? p.name : ''));
+  var opts = state.projects.map(function(x){ return '<option value="'+esc(x.name)+'"></option>'; }).join('');
+  var entry = document.getElementById('entry');
+  if(ro){ entry.style.display='none'; entry.innerHTML=''; }
+  else {
+    entry.style.display='';
+    entry.innerHTML =
+      '<h2><span>'+(editing?'修改這筆':'記一筆')+'</span>'+(editing?'':'<button class="btn sm" type="button" data-act="batch">批次貼上</button>')+'</h2>' +
+      '<form class="entry" id="entryForm" autocomplete="off">' +
+        '<input class="field" id="fName" list="pnames" maxlength="40" placeholder="項目名稱，例如：中釉" value="'+esc(nameVal)+'" enterkeyhint="next" autocapitalize="off"><datalist id="pnames">'+opts+'</datalist>' +
+        '<div class="seg"><button type="button" data-type="in" class="in'+(type==='in'?' on':'')+'">收入 ＋</button><button type="button" data-type="out" class="out'+(type==='out'?' on':'')+'">支出 －</button></div>' +
+        '<div class="two"><input class="field amtin" id="fAmt" type="text" inputmode="decimal" placeholder="金額" value="'+(editing?editing.amount:'')+'">' +
+          '<input class="field" type="date" id="fDate" value="'+esc(editing?editing.date:(ui.lastDate||today()))+'"></div>' +
+        '<input class="field" id="fNote" maxlength="80" placeholder="備註（可不填）" value="'+esc(editing?editing.note:'')+'" enterkeyhint="done">' +
+        '<div class="err" id="err">'+esc(ui.err)+'</div>' +
+        (editing ? '<div class="rowbtns"><button class="btn" type="button" data-act="cancelEdit">取消</button><button class="btn primary" type="submit">儲存修改</button></div>'
+                 : '<button class="btn primary block" type="submit">加入</button>') +
+        '<div class="notice">'+(editing?'':ui.notice)+'</div>' +
+      '</form>';
+  }
+
+  /* records, grouped by day */
+  var rows = allRows(p);
+  var html = '', day = null, open = false;
+  rows.forEach(function(r){
+    var e = r.e;
+    if(e.date !== day){ if(open) html += '</ul>'; day = e.date; html += '<div class="day">'+esc(dayLabel(day))+'</div><ul class="recs">'; open = true; }
+    var cls = 'rec' + (e.id===ui.editId?' editing':e.id===ui.flash?' flash':'');
+    html += '<li class="'+cls+'" data-rec="'+e.id+'">' +
+      '<div class="l1">' + (p ? '' : '<span class="nm">'+esc(r.p.name)+'</span>') +
+        '<span class="note">'+esc(e.note||'')+'</span>' +
+        signed(e.type==='in'?e.amount:-e.amount) + '</div>' +
+      '<div class="l2"><span>'+(e.type==='in'?'收入':'支出')+'</span><span>'+(p?'':esc(r.p.name)+' ')+'累計 '+signed(r.run)+'</span></div>' +
+      (ui.open===e.id && !ro ? '<div class="ra"><button class="btn" data-edit="'+e.id+'">修改</button><button class="btn danger'+(ui.armed===e.id?' armed':'')+'" data-del="'+e.id+'">'+(ui.armed===e.id?'確定刪除？':'刪除')+'</button></div>' : '') +
+    '</li>';
+  });
+  if(open) html += '</ul>';
+  document.getElementById('list').innerHTML =
+    '<h2><span>明細 · '+rows.length+' 筆</span>'+(rows.length?'<span class="listacts"><button class="btn sm" data-act="copy">複製 CSV</button></span>':'')+'</h2>' +
+    (ui.copied?'<div class="copied">已複製，可以貼到 Excel 或 Google 試算表</div>':'') +
+    (rows.length ? html : '<div class="empty">'+(state.projects.length?'還沒有紀錄':'填項目名稱和金額，記下第一筆')+'</div>');
+
+  renderBatch(); renderBackup();
+}
+function dayLabel(d){
+  var t = today();
+  var y = new Date(Date.parse(t) - 864e5).toISOString().slice(0,10);
+  var w = '日一二三四五六'.charAt(new Date(d+'T00:00:00').getDay());
+  var md = d.slice(5).replace('-','/').replace(/^0/,'').replace('/0','/');
+  return (d===t?'今天 · ':d===y?'昨天 · ':'') + (d.slice(0,4)===t.slice(0,4)?'':d.slice(0,4)+'/') + md + '（' + w + '）';
+}
+
+/* ---------- batch paste ---------- */
+// One record per line:  [日期] 項目 ±金額 [備註]
+//   e.g. "中釉 -3000 股票", "11/7 台積電 +2000 股利", "家用 支出 800 買菜"
+var AMT_RE = /^(收入|支出|收|支|[+\-])?\$?(\d[\d,]*(?:\.\d+)?)元?$/;
+function parseLine(raw, defDate){
+  var s = toHalf(raw).trim().replace(/^([•・*]|-(?=\s))\s*/,'').trim();
+  if(!s) return null;
+  var date = defDate, m;
+  if((m = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})\s+/))){ date = m[1]+'-'+pad(m[2])+'-'+pad(m[3]); s = s.slice(m[0].length); }
+  else if((m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})\s+/))){ date = defDate.slice(0,4)+'-'+pad(m[1])+'-'+pad(m[2]); s = s.slice(m[0].length); }
+  var tk = s.split(/\s+/), i, sign = null, amt = NaN, at = -1;
+  for(i = 1; i < tk.length; i++){
+    var w = tk[i];
+    if(/^(收入|支出|收|支|[+\-])$/.test(w) && i+1 < tk.length && /^\$?\d[\d,]*(\.\d+)?元?$/.test(tk[i+1])){
+      sign = w; amt = parseAmount(tk[i+1]); at = i; tk.splice(i+1,1); break;
+    }
+    m = w.match(AMT_RE);
+    if(m){ sign = m[1] || null; amt = parseAmount(m[2]); at = i; break; }
+  }
+  if(at < 0){ // no spaces, e.g. "中釉-3000股票"
+    m = s.match(/^(.+?)\s*(收入|支出|[+\-])\s*(\d[\d,]*(?:\.\d+)?)元?\s*(.*)$/);
+    if(m && !/\d$/.test(m[1])) return finish(m[1], m[2], parseAmount(m[3]), m[4], date, raw);
+    return {bad:true, src:raw};
+  }
+  return finish(tk.slice(0,at).join(' '), sign, amt, tk.slice(at+1).join(' '), date, raw);
+}
+function finish(name, sign, amt, note, date, raw){
+  name = String(name).trim();
+  if(!name || !(amt > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(Date.parse(date))) return {bad:true, src:raw};
+  var type = (sign==='+'||sign==='收入'||sign==='收') ? 'in' : 'out';
+  return {name:name, type:type, amount:round(amt), note:String(note||'').trim(), date:date, guessed: !sign};
+}
+function pad(n){ n=String(n); return n.length<2?'0'+n:n; }
+function batchParse(){
+  var ta = document.getElementById('bText'), dd = document.getElementById('bDate');
+  var def = (dd && dd.value) || today(), text = ta ? ta.value : '';
+  if(/^\s*日期,/.test(text)) return parseCSV(text);
+  return text.split(/\r?\n/).map(function(l){ return parseLine(l, def); }).filter(Boolean);
+}
+// CSV copied from the web version's 複製 CSV: 日期,項目,類型,備註,金額,...
+function csvRow(line){
+  var out = [], cur = '', q = false;
+  for(var i=0;i<line.length;i++){
+    var c = line[i];
+    if(q){ if(c==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=c; }
+    else if(c==='"') q = true; else if(c===','){ out.push(cur); cur=''; } else cur += c;
+  }
+  out.push(cur); return out;
+}
+function parseCSV(text){
+  var lines = text.trim().split(/\r?\n/), head = csvRow(lines[0]);
+  if(head[1] !== '項目') return [{bad:true, src:'請在網頁版先選「全部」再複製 CSV（需要有「項目」欄）'}];
+  return lines.slice(1).filter(function(l){ return l.trim(); }).map(function(l){
+    var c = csvRow(l), date = c[0], name = (c[1]||'').trim(), type = c[2] === '收入' ? 'in' : 'out', note = c[3], amt = Math.abs(parseFloat(c[4]));
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || !name || !(amt > 0)) return {bad:true, src:l};
+    return {name:name, type:type, amount:round(amt), note:note||'', date:date, guessed:false};
+  });
+}
+
+function renderBatch(){
+  var sh = document.getElementById('sheet');
+  if(!ui.batch){ sh.hidden = true; return; }
+  if(!sh.hidden && document.getElementById('bText')){ updatePreview(); return; }
+  sh.hidden = false;
+  document.getElementById('panel').innerHTML =
+    '<h3>批次貼上</h3>' +
+    '<div class="help">從網頁版搬資料：在網頁版選「全部」→ 按「複製 CSV」，再貼到這裡。<br>或者先記在「備忘錄」，一行一筆：<br><code>項目 +金額 備註</code> 收入、<code>項目 -金額 備註</code> 支出。<br>' +
+      '例如 <code>中釉 -3000 股票</code>、<code>11/7 台積電 +2000 股利</code>。行首可加日期；沒加日期就用下面的日期；沒寫 + 或 - 當作支出。</div>' +
+    '<textarea class="field" id="bText" placeholder="把備忘錄的內容貼在這裡" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>' +
+    '<label class="help">沒寫日期的行，日期用 <input class="field" type="date" id="bDate" value="'+today()+'" style="min-height:40px;padding:6px 10px;width:auto;display:inline-block"></label>' +
+    '<ul class="prev" id="bPrev"></ul>' +
+    '<div class="rowbtns"><button class="btn" type="button" data-act="batchClose">取消</button><button class="btn primary" type="button" data-act="batchAdd" id="bAdd" disabled>加入</button></div>';
+  updatePreview();
+}
+function updatePreview(){
+  var items = batchParse(), good = items.filter(function(x){return !x.bad;});
+  var prev = document.getElementById('bPrev'), add = document.getElementById('bAdd');
+  prev.innerHTML = items.map(function(x){
+    if(x.bad) return '<li class="bad"><span class="src">'+esc(x.src)+'</span><span>看不懂這行，會略過</span></li>';
+    var isNew = !projByName(x.name);
+    return '<li><span class="nm">'+esc(x.name)+'</span><span class="note">'+esc(x.note)+(isNew?' <span class="warn">· 新項目</span>':'')+(x.guessed?' <span class="warn">· 當作支出</span>':'')+'</span>' +
+      '<span class="warn">'+esc(x.date.slice(5).replace('-','/'))+'</span>'+signed(x.type==='in'?x.amount:-x.amount)+'</li>';
+  }).join('');
+  add.disabled = !good.length;
+  add.textContent = good.length ? '加入 '+good.length+' 筆' : '加入';
+}
+document.addEventListener('input', function(ev){ if(ev.target && (ev.target.id==='bText' || ev.target.id==='bDate')) updatePreview(); });
+document.addEventListener('change', function(ev){ if(ev.target && ev.target.id==='restoreFile' && ev.target.files[0]){ doRestore(ev.target.files[0]); ev.target.value=''; } });
+
+/* ---------- events ---------- */
+document.addEventListener('click', function(ev){
+  if(ev.target.id === 'sheet'){ ui.batch=false; renderBatch(); return; }
+  if(ev.target.id === 'sheet2'){ ui.backup=false; renderBackup(); return; }
+  var dz = ev.target.closest('[data-dismiss]');
+  if(dz){ setMeta('ledger-dismiss-'+dz.dataset.dismiss,'1'); renderBanner(); return; }
+  var t = ev.target.closest('button');
+  var rec = ev.target.closest('.rec');
+  if(!t && rec){ // tap a record to show its actions
+    ui.open = ui.open === rec.dataset.rec ? null : rec.dataset.rec; ui.armed=null; render(); return;
+  }
+  if(!t) return;
+  var p = (ui.sel && ui.sel!=='all') ? proj(ui.sel) : null;
+  if(t.dataset.sel){ select(t.dataset.sel); return; }
+  if(t.dataset.type){
+    ui.type = t.dataset.type;
+    Array.prototype.forEach.call(t.parentNode.children, function(c){ c.classList.toggle('on', c===t); });
+    return;
+  }
+  if(t.dataset.edit){
+    ui.editId = t.dataset.edit; ui.armed=null; ui.err=''; ui.notice='';
+    var fe = findEntry(ui.editId); if(fe) ui.type = fe.e.type;
+    render();
+    var en = document.getElementById('entry'); if(en && en.scrollIntoView) en.scrollIntoView({behavior:'smooth', block:'start'});
+    var a=document.getElementById('fAmt'); if(a) a.focus({preventScroll:true});
+    return;
+  }
+  if(t.dataset.del){
+    if(ui.armed === t.dataset.del){
+      var fd = findEntry(t.dataset.del);
+      if(fd) fd.p.entries = fd.p.entries.filter(function(x){ return x.id !== t.dataset.del; });
+      if(ui.editId===t.dataset.del) ui.editId=null;
+      ui.armed=null; ui.open=null; render(); save();
+    } else { ui.armed = t.dataset.del; render(); }
+    return;
+  }
+  var act = t.dataset.act;
+  if(act==='backup'){ ui.backup=true; ui.bkMsg=''; renderBackup(); return; }
+  if(act==='backupClose'){ ui.backup=false; renderBackup(); return; }
+  if(act==='doBackup'){ doBackup(); return; }
+  if(act==='batch'){ ui.batch=true; renderBatch(); var bt=document.getElementById('bText'); if(bt) bt.focus(); return; }
+  if(act==='batchClose'){ ui.batch=false; renderBatch(); return; }
+  if(act==='batchAdd'){
+    var good = batchParse().filter(function(x){return !x.bad;}), made = 0, lastId = null;
+    good.forEach(function(x){
+      var tp = projByName(x.name);
+      if(!tp){ tp = {id: uid('p'), name: x.name.replace(/\s+/g,' '), entries: []}; state.projects.push(tp); made++; }
+      lastId = uid('e');
+      tp.entries.push({id: lastId, date: x.date, type: x.type, amount: x.amount, note: x.note});
+    });
+    ui.batch=false; ui.sel='all'; setHash();
+    ui.notice = '已加入 '+good.length+' 筆' + (made ? '，新建 '+made+' 個項目' : '');
+    render(); save();
+    window.scrollTo({top:0, behavior:'smooth'});
+    return;
+  }
+  if(act==='cancelEdit'){ ui.editId=null; ui.err=''; render(); return; }
+  if(act==='rename'){ ui.renaming=true; ui.armed=null; render(); var r=document.getElementById('renameInput'); if(r){ r.focus(); r.select(); } return; }
+  if(act==='cancelRename'){ ui.renaming=false; render(); return; }
+  if(act==='delProj' && p){
+    if(ui.armed==='proj'){
+      if(ui.lastName!=null && norm(ui.lastName)===norm(p.name)) ui.lastName = null;
+      state.projects = state.projects.filter(function(x){ return x.id!==p.id; });
+      ui.armed=null; ui.sel = state.projects.length?'all':null; setHash();
+      render(); save();
+    } else { ui.armed='proj'; render(); }
+    return;
+  }
+  if(act==='copy'){
+    var rows = allRows(p).slice().reverse();
+    function q(s){ return '"'+String(s||'').replace(/"/g,'""')+'"'; }
+    var lines = [p ? '日期,類型,備註,金額,累計結餘' : '日期,項目,類型,備註,金額,該項目累計'];
+    rows.forEach(function(r){
+      var e=r.e, v = e.type==='in'?e.amount:-e.amount;
+      lines.push((p ? [e.date, e.type==='in'?'收入':'支出', q(e.note), v, r.run]
+                    : [e.date, q(r.p.name), e.type==='in'?'收入':'支出', q(e.note), v, r.run]).join(','));
+    });
+    (navigator.clipboard ? navigator.clipboard.writeText(lines.join('\n')) : Promise.reject()).then(function(){
+      ui.copied=true; render(); setTimeout(function(){ ui.copied=false; render(); }, 2500);
+    }).catch(function(){ ui.err='瀏覽器不允許複製'; render(); });
+    return;
+  }
+});
+
+document.addEventListener('submit', function(ev){
+  ev.preventDefault();
+  var f = ev.target;
+  if(f.id==='renameForm'){
+    var cur = proj(ui.sel), nn = document.getElementById('renameInput').value.trim().replace(/\s+/g,' '), other = projByName(nn);
+    if(nn && other && other !== cur){ ui.err = '已經有叫「'+nn+'」的項目'; ui.renaming=false; render(); return; }
+    if(nn){ if(ui.lastName!=null && norm(ui.lastName)===norm(cur.name)) ui.lastName = nn; cur.name = nn; ui.renaming=false; render(); save(); }
+    return;
+  }
+  if(f.id!=='entryForm') return;
+  var pname = document.getElementById('fName').value.trim().replace(/\s+/g,' ');
+  var amt = parseAmount(document.getElementById('fAmt').value);
+  var date = document.getElementById('fDate').value || today();
+  var note = document.getElementById('fNote').value.trim();
+  if(!pname){ ui.err='請填項目名稱'; render(); document.getElementById('fName').focus(); return; }
+  if(!(amt > 0)){ ui.err='請輸入大於 0 的金額'; render(); document.getElementById('fAmt').focus(); return; }
+  amt = round(amt);
+  var target = projByName(pname), created = false;
+  if(!target){ target = {id: uid('p'), name: pname, entries: []}; state.projects.push(target); created = true; }
+  if(ui.editId){
+    var fe = findEntry(ui.editId);
+    if(fe){
+      fe.e.type=ui.type; fe.e.amount=amt; fe.e.date=date; fe.e.note=note;
+      if(fe.p !== target){ fe.p.entries = fe.p.entries.filter(function(x){return x!==fe.e;}); target.entries.push(fe.e); }
+      ui.flash = fe.e.id;
+    }
+    ui.editId=null; ui.open=null; ui.notice='已儲存修改';
+  } else {
+    var nid = uid('e');
+    target.entries.push({id: nid, date: date, type: ui.type, amount: amt, note: note});
+    ui.lastDate = date; ui.lastName = target.name; ui.flash = nid;
+    ui.notice = (created ? '已建立「'+esc(target.name)+'」並加入 ' : '已加入「'+esc(target.name)+'」 ') + (ui.type==='in'?'+':'−') + fmt(amt);
+  }
+  var fl = ui.flash; setTimeout(function(){ if(ui.flash===fl) ui.flash=null; }, 1700);
+  if(ui.sel !== 'all' && ui.sel !== target.id) ui.sel = 'all';
+  if(!ui.sel) ui.sel = 'all';
+  setHash();
+  ui.err=''; render(); save();
+  // keep the keyboard up: focus the amount for the next record right away
+  var a2=document.getElementById('fAmt'); if(a2) a2.focus({preventScroll:true});
+});
+
+/* ---------- boot ---------- */
+readHash();
+render();
+try { if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('./sw.js').catch(function(){}); });
+}
+window.addEventListener('storage', function(ev){ if(ev.key === DATA_KEY){ loadState(); render(); } });
+})();
+</script>
+</body>
+</html>
